@@ -1,0 +1,18 @@
+[package]
+name = "symgraph"
+version = "0.1.0"
+edition = "2024"
+description = "clang index-store 기반 정확 소스 심볼 그래프 (증분 머지 + 쿼리)"
+
+[lib]
+name = "symgraph"
+path = "src/lib.rs"
+
+[[bin]]
+name = "symgraph"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.102"
+libloading = "0.8"
+rusqlite = { version = "0.37", features = ["bundled"] }
