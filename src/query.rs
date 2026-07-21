@@ -126,6 +126,19 @@ pub struct Sym {
     pub kind: i64,
 }
 
+/// 컨테이너 kind(namespace/enum/struct/class/protocol/union)인지.
+fn is_container_kind(k: i64) -> bool {
+    matches!(k, 2 | 5 | 6 | 7 | 8 | 10)
+}
+
+/// 동명의 컨테이너와 비컨테이너(생성자 등)가 섞여 있으면 컨테이너만 남긴다.
+/// 메서드를 단독/qualified 로 조회하면 컨테이너 형제가 없어 필터가 발동하지 않는다.
+fn prefer_containers(syms: &mut Vec<Sym>) {
+    if syms.iter().any(|s| is_container_kind(s.kind)) {
+        syms.retain(|s| is_container_kind(s.kind));
+    }
+}
+
 fn row_sym(r: &rusqlite::Row) -> rusqlite::Result<Sym> {
     Ok(Sym {
         id: r.get(0)?,
@@ -428,10 +441,12 @@ pub fn callees(conn: &Connection, sh: &Shortener, query: &str, limit: usize) -> 
 
 /// 상속·오버라이드 계층: bases / derived / overrides / overridden-by.
 pub fn hierarchy(conn: &Connection, sh: &Shortener, query: &str, limit: usize) -> Result<String> {
-    let syms = match resolve_targets(conn, sh, query)? {
+    let mut syms = match resolve_targets(conn, sh, query)? {
         Ok(s) => s,
         Err(msg) => return Ok(msg),
     };
+    // 클래스명으로 조회하면 동명 생성자가 섞이므로 계층 조회에선 컨테이너만 본다.
+    prefer_containers(&mut syms);
     let mut out = String::new();
     for sym in &syms {
         // "타 심볼의 occurrence 가 (rel_role, X) 를 가질 때" 그 occurrence 심볼 쪽 (bases / overridden-by).
@@ -505,11 +520,8 @@ pub fn members(conn: &Connection, sh: &Shortener, query: &str, limit: usize) -> 
         Ok(s) => s,
         Err(msg) => return Ok(msg),
     };
-    // 같은 이름의 생성자 등이 섞이면 컨테이너 kind(namespace/enum/struct/class/protocol/union)만 남긴다.
-    let is_container = |k: i64| matches!(k, 2 | 5 | 6 | 7 | 8 | 10);
-    if syms.iter().any(|s| is_container(s.kind)) {
-        syms.retain(|s| is_container(s.kind));
-    }
+    // 같은 이름의 생성자 등이 섞이면 컨테이너만 남긴다.
+    prefer_containers(&mut syms);
     let mut out = String::new();
     for sym in &syms {
         let mut stmt = conn.prepare_cached(&format!(
