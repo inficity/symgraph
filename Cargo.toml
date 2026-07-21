@@ -3,6 +3,7 @@ name = "symgraph"
 version = "0.1.0"
 edition = "2024"
 description = "clang index-store 기반 정확 소스 심볼 그래프 (증분 머지 + 쿼리)"
+license = "MIT"
 
 [lib]
 name = "symgraph"
